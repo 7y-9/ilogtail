@@ -90,6 +90,10 @@ type InputDockerFile struct {
 	fullList              map[string]bool
 	matchList             map[string]*helper.DockerInfoDetail
 	CollectContainersFlag bool
+
+	flagFirstInitContainers bool
+	havingPathkeys          []string
+	nothavingPathkeys       []string
 }
 
 func formatPath(path string) string {
@@ -110,6 +114,7 @@ func (idf *InputDockerFile) Name() string {
 }
 
 func (idf *InputDockerFile) Init(context pipeline.Context) (int, error) {
+	idf.flagFirstInitContainers = true
 	idf.context = context
 	idf.lastPathMappingCache = make(map[string]string)
 	idf.fullList = make(map[string]bool)
@@ -374,12 +379,30 @@ func (idf *InputDockerFile) Collect(collector pipeline.Collector) error {
 			FlusherTargetAddress:          fmt.Sprintf("%s/%s", idf.context.GetProject(), idf.context.GetLogstore()),
 		}
 		util.RecordConfigResultMap(configResult)
-		if newCount != 0 || delCount != 0 {
+		if idf.flagFirstInitContainers {
+			logger.Infof(idf.context.GetRuntimeContext(), "metric_docker_file", "CollectContainersFlag", "first")
 			util.RecordConfigResultIncrement(configResult)
+			idf.flagFirstInitContainers = false
+		} else {
+			havingPathKeysSame := util.SameStringSlice(havingPathkeys, idf.havingPathkeys)
+			nothavingPathKeysSame := util.SameStringSlice(nothavingPathkeys, idf.nothavingPathkeys)
+			if !(havingPathKeysSame && nothavingPathKeysSame) {
+				logger.Infof(idf.context.GetRuntimeContext(), "RecordConfigResultIncrement, old havingPathkeys: %v, old nothavingPathkeys : %v", idf.havingPathkeys, idf.nothavingPathkeys)
+				logger.Infof(idf.context.GetRuntimeContext(), "RecordConfigResultIncrement, new havingPathkeys: %v, new nothavingPathkeys : %v", havingPathkeys, nothavingPathkeys)
+				util.RecordConfigResultIncrement(configResult)
+
+				if !havingPathKeysSame {
+					idf.havingPathkeys = make([]string, 0)
+					idf.havingPathkeys = append(idf.havingPathkeys, havingPathkeys...)
+				}
+				if !nothavingPathKeysSame {
+					idf.nothavingPathkeys = make([]string, 0)
+					idf.nothavingPathkeys = append(idf.nothavingPathkeys, nothavingPathkeys...)
+				}
+			}
 		}
 		logger.Debugf(idf.context.GetRuntimeContext(), "update match list, addResultList: %v, deleteResultList: %v, addFullList: %v, deleteFullList: %v", addResultList, deleteResultList, addFullList, deleteFullList)
 	}
-
 	for id := range idf.lastPathMappingCache {
 		if c, ok := dockerInfoDetails[id]; !ok {
 			idf.deleteMetric.Add(1)

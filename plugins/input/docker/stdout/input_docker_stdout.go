@@ -176,9 +176,13 @@ type ServiceDockerStdout struct {
 	matchList             map[string]*helper.DockerInfoDetail
 	lastUpdateTime        int64
 	CollectContainersFlag bool
+
+	flagFirstInitContainers bool
+	matchIDList             []string
 }
 
 func (sds *ServiceDockerStdout) Init(context pipeline.Context) (int, error) {
+	sds.flagFirstInitContainers = true
 	sds.context = context
 	helper.ContainerCenterInit()
 	sds.fullList = make(map[string]bool)
@@ -306,8 +310,17 @@ func (sds *ServiceDockerStdout) FlushAll(c pipeline.Collector, firstStart bool) 
 				FlusherTargetAddress:       fmt.Sprintf("%s/%s", sds.context.GetProject(), sds.context.GetLogstore()),
 			}
 			util.RecordConfigResultMap(configResult)
-			if newCount != 0 || delCount != 0 {
+			if sds.flagFirstInitContainers {
+				logger.Debugf(sds.context.GetRuntimeContext(), "metric_docker_file", "CollectContainersFlag", "first")
 				util.RecordConfigResultIncrement(configResult)
+				sds.flagFirstInitContainers = false
+			} else {
+				logger.Debugf(sds.context.GetRuntimeContext(), "RecordConfigResultIncrement, old havingPathkeys: %v, old nothavingPathkeys : %v", sds.matchIDList, keys)
+				if !util.SameStringSlice(keys, sds.matchIDList) {
+					util.RecordConfigResultIncrement(configResult)
+				}
+				sds.matchIDList = make([]string, 0)
+				sds.matchIDList = append(sds.matchIDList, keys...)
 			}
 			logger.Debugf(sds.context.GetRuntimeContext(), "update match list, addResultList: %v, deleteResultList: %v, addFullList: %v, deleteFullList: %v", addResultList, deleteResultList, addFullList, deleteFullList)
 		}
