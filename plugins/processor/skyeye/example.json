@@ -1,0 +1,25 @@
+{
+  "inputs": [
+    {
+      "type": "metric_mock",
+      "detail": {
+        "Fields": {
+          "1111": "2222"
+        }
+      }
+    }
+  ],
+  "processors": [
+    {
+      "type": "skyeye_processor"
+    }
+  ],
+  "flushers": [
+    {
+      "type": "flusher_stdout",
+      "detail": {
+        "OnlyStdout": true
+      }
+    }
+  ]
+}
