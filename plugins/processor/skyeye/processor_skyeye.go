@@ -28,7 +28,7 @@ type ProcessorSkyeye struct {
 	context       pipeline.Context
 }
 
-const pluginName = "skyeye_processor"
+const pluginName = "processor_skyeye"
 
 // Init method would be triggered before working for init some system resources,
 // like socket, mutex. In this plugin, it verifies Fields must not be empty.
